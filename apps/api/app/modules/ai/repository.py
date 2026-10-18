@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import Select, and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,17 +129,18 @@ class AIRepository:
                 )
             )
         ).one()
+        total_cost = row[4]
         return (
             int(row[0]),
             int(row[1]),
             int(row[2]),
             int(row[3]),
-            Decimal(row[4]),
+            Decimal(0) if total_cost is None else Decimal(total_cost),
             int(row[5]),
         )
 
     @staticmethod
-    def searchable_statement() -> Select[tuple[ContentItem]]:
+    def searchable_statement() -> Select[Any]:
         return (
             select(ContentItem)
             .join(Source, Source.id == ContentItem.source_id)

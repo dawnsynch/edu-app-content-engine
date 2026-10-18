@@ -20,7 +20,7 @@ from app.modules.ingestion.service import IngestionService
 from app.worker.celery_app import celery_app
 
 
-@celery_app.task(name="foundation.ping")  # type: ignore[misc]
+@celery_app.task(name="foundation.ping")
 def ping() -> str:
     return "pong"
 
@@ -50,7 +50,7 @@ async def _ingest(source_id: int, trigger: IngestionTrigger, attempt: int) -> di
         await engine.dispose()
 
 
-@celery_app.task(bind=True, name="ingestion.run_source", max_retries=4)  # type: ignore[misc]
+@celery_app.task(bind=True, name="ingestion.run_source", max_retries=4)
 def run_source_ingestion(
     self: Task,
     source_id: int,
@@ -94,7 +94,7 @@ async def _due_source_ids() -> list[int]:
         await engine.dispose()
 
 
-@celery_app.task(name="ingestion.dispatch_due_sources")  # type: ignore[misc]
+@celery_app.task(name="ingestion.dispatch_due_sources")
 def dispatch_due_sources() -> dict[str, Any]:
     source_ids = asyncio.run(_due_source_ids())
     for source_id in source_ids:
@@ -124,7 +124,7 @@ async def _purge_expired_content() -> int:
         await engine.dispose()
 
 
-@celery_app.task(name="retention.purge_expired_content")  # type: ignore[misc]
+@celery_app.task(name="retention.purge_expired_content")
 def purge_expired_content() -> dict[str, int]:
     return {"deleted": asyncio.run(_purge_expired_content())}
 
@@ -150,7 +150,7 @@ async def _enrich_content(content_id: int) -> dict[str, Any]:
         await engine.dispose()
 
 
-@celery_app.task(bind=True, name="enrichment.run_content", max_retries=3)  # type: ignore[misc]
+@celery_app.task(bind=True, name="enrichment.run_content", max_retries=3)
 def run_content_enrichment(self: Task, content_id: int) -> dict[str, Any]:
     settings = get_settings()
     redis_client = Redis.from_url(settings.redis_url)
@@ -189,7 +189,7 @@ async def _pending_enrichment_ids() -> list[int]:
         await engine.dispose()
 
 
-@celery_app.task(name="enrichment.dispatch_pending")  # type: ignore[misc]
+@celery_app.task(name="enrichment.dispatch_pending")
 def dispatch_pending_enrichment() -> dict[str, Any]:
     content_ids = asyncio.run(_pending_enrichment_ids())
     for content_id in content_ids:

@@ -25,7 +25,7 @@ dev = [
   "pytest>=8.3.2",
   "pytest-asyncio>=0.24.0",
   "ruff>=0.6.8",
-  "mypy>=1.11.2"
+  "mypy==2.4.0"
 ]
 
 [tool.pytest.ini_options]
@@ -48,6 +48,10 @@ plugins = []
 [[tool.mypy.overrides]]
 module = ["celery", "celery.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.worker.tasks"]
+disable_error_code = ["untyped-decorator"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
