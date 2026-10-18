@@ -1,0 +1,16 @@
+services:
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE to an immutable registry tag}
+    restart: unless-stopped
+
+  worker:
+    image: ${API_IMAGE:?Set API_IMAGE to an immutable registry tag}
+    restart: unless-stopped
+
+  scheduler:
+    image: ${API_IMAGE:?Set API_IMAGE to an immutable registry tag}
+    restart: unless-stopped
+
+  web:
+    image: ${WEB_IMAGE:?Set WEB_IMAGE to an immutable registry tag}
+    restart: unless-stopped

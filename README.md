@@ -251,6 +251,15 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+## Remote Deployment
+
+GitHub Actions can build versioned API and web images in GHCR and deploy them to
+the Linux development server after CI succeeds on `main`. Runtime secrets stay
+in the server-side `.env` file. See
+[GitHub Actions Development Deployment](docs/deployment/github-actions.md) for
+server prerequisites, required GitHub environment secrets, first deployment,
+and rollback behavior.
+
 ## Architecture Docs
 
 - [Architecture](docs/architecture/architecture.md)

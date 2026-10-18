@@ -11,4 +11,5 @@ node_modules/
 coverage/
 dist/
 postgres_data/
+.release.env
 

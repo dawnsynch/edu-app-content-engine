@@ -1,0 +1,140 @@
+name: Deploy Development
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: edu-dawnsynch-development
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      web_image: ${{ steps.images.outputs.web_image }}
+      release_sha: ${{ steps.images.outputs.release_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: images
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "api_image=ghcr.io/${repository}/api:${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "web_image=ghcr.io/${repository}/web:${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "api_development_image=ghcr.io/${repository}/api:development" >> "$GITHUB_OUTPUT"
+          echo "web_development_image=ghcr.io/${repository}/web:development" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          platforms: ${{ vars.DEPLOY_PLATFORMS || 'linux/amd64' }}
+          push: true
+          tags: |
+            ${{ steps.images.outputs.api_image }}
+            ${{ steps.images.outputs.api_development_image }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          platforms: ${{ vars.DEPLOY_PLATFORMS || 'linux/amd64' }}
+          push: true
+          tags: |
+            ${{ steps.images.outputs.web_image }}
+            ${{ steps.images.outputs.web_development_image }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.release_sha }}
+
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          : "${DEPLOY_HOST:?DEPLOY_HOST is not configured}"
+          : "${DEPLOY_USER:?DEPLOY_USER is not configured}"
+          : "${DEPLOY_PATH:?DEPLOY_PATH is not configured}"
+          : "${DEPLOY_SSH_KEY:?DEPLOY_SSH_KEY is not configured}"
+          : "${DEPLOY_KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS is not configured}"
+          [[ "${DEPLOY_PORT:-22}" =~ ^[0-9]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Upload deployment files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          port="${DEPLOY_PORT:-22}"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$DEPLOY_PATH/scripts'"
+          scp -i "$HOME/.ssh/deploy_key" -P "$port" \
+            docker-compose.yml docker-compose.deploy.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+          scp -i "$HOME/.ssh/deploy_key" -P "$port" scripts/deploy.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/scripts/deploy.sh"
+
+      - name: Deploy and verify
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          API_IMAGE: ${{ needs.build.outputs.api_image }}
+          WEB_IMAGE: ${{ needs.build.outputs.web_image }}
+          RELEASE_SHA: ${{ needs.build.outputs.release_sha }}
+        run: |
+          port="${DEPLOY_PORT:-22}"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && chmod 700 scripts/deploy.sh && API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' RELEASE_SHA='$RELEASE_SHA' scripts/deploy.sh"
