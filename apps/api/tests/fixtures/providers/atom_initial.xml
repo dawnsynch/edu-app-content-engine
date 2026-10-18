@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Atom Feed</title>
+  <entry>
+    <id>atom-lesson-1</id>
+    <title>Modern TypeScript</title>
+    <link href="https://learn.example.test/atom-lesson-1" rel="alternate" />
+    <summary>Type-safe frontend foundations.</summary>
+    <updated>2026-10-15T10:00:00Z</updated>
+  </entry>
+</feed>

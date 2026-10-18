@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": {"videoId": "official-video-1"},
+      "snippet": {
+        "title": "Official API Lesson",
+        "description": "Metadata returned by the YouTube Data API.",
+        "channelTitle": "Example Education",
+        "publishedAt": "2026-10-15T07:00:00Z",
+        "thumbnails": {
+          "high": {"url": "https://i.ytimg.com/vi/official-video-1/hqdefault.jpg"}
+        }
+      }
+    }
+  ]
+}

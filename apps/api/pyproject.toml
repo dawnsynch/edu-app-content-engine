@@ -1,0 +1,54 @@
+[project]
+name = "edu-dawnsynch-api"
+version = "0.1.0"
+description = "FastAPI foundation for Edu DawnSynch"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.13.2",
+  "asyncpg>=0.29.0",
+  "celery>=5.4.0",
+  "fastapi>=0.115.0",
+  "httpx>=0.27.0",
+  "psycopg[binary]>=3.2.1",
+  "pydantic-settings>=2.4.0",
+  "redis>=5.0.8",
+  "sqlalchemy[asyncio]>=2.0.32",
+  "uvicorn[standard]>=0.30.6"
+]
+
+[build-system]
+requires = ["setuptools>=74.0"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.6.8",
+  "mypy>=1.11.2"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["integration: requires a migrated PostgreSQL test database"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = []
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+

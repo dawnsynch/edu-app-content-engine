@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "external_id": "cms-101",
+      "canonical_url": "https://academy.example.test/courses/cms-101",
+      "title": "Cloud Foundations",
+      "description": "First-party CMS course metadata.",
+      "content_type": "course",
+      "author_name": "Example Academy",
+      "language_code": "en",
+      "published_at": "2026-10-15T08:00:00Z",
+      "raw_metadata": {"provider": "owned_cms"}
+    }
+  ],
+  "next_cursor": "page-2"
+}

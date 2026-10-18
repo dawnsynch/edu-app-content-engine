@@ -1,0 +1,112 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      ALEMBIC_DATABASE_URL: ${ALEMBIC_DATABASE_URL:?Set ALEMBIC_DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/8}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/9}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/10}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-edu_dawnsynch}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      LITELLM_MODEL: ${LITELLM_MODEL:-edu-default}
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL:-edu-embedding}
+      AI_PROMPT_VERSION: ${AI_PROMPT_VERSION:-content-enrichment-v3}
+      AI_SCHEMA_VERSION: ${AI_SCHEMA_VERSION:-1.0.0}
+      AI_MIN_CONFIDENCE: ${AI_MIN_CONFIDENCE:-0.65}
+      AI_HTTP_TIMEOUT_SECONDS: ${AI_HTTP_TIMEOUT_SECONDS:-30}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-3}
+      ENRICHMENT_BATCH_SIZE: ${ENRICHMENT_BATCH_SIZE:-50}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      INGESTION_HTTP_TIMEOUT_SECONDS: ${INGESTION_HTTP_TIMEOUT_SECONDS:-15}
+      INGESTION_LOCK_SECONDS: ${INGESTION_LOCK_SECONDS:-900}
+      INGESTION_MAX_RETRIES: ${INGESTION_MAX_RETRIES:-4}
+      RECOMMENDATION_CACHE_TTL_SECONDS: ${RECOMMENDATION_CACHE_TTL_SECONDS:-300}
+      RECOMMENDATION_CANDIDATE_LIMIT: ${RECOMMENDATION_CANDIDATE_LIMIT:-500}
+    ports:
+      - "127.0.0.1:${API_PUBLISHED_PORT:-8010}:8000"
+    networks:
+      - app
+      - shared_core
+      - shared_vector
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: ./apps/api
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/8}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/9}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/10}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-edu_dawnsynch}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      LITELLM_MODEL: ${LITELLM_MODEL:-edu-default}
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL:-edu-embedding}
+      AI_PROMPT_VERSION: ${AI_PROMPT_VERSION:-content-enrichment-v3}
+      AI_SCHEMA_VERSION: ${AI_SCHEMA_VERSION:-1.0.0}
+      AI_MIN_CONFIDENCE: ${AI_MIN_CONFIDENCE:-0.65}
+      AI_HTTP_TIMEOUT_SECONDS: ${AI_HTTP_TIMEOUT_SECONDS:-30}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-3}
+      ENRICHMENT_BATCH_SIZE: ${ENRICHMENT_BATCH_SIZE:-50}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      INGESTION_HTTP_TIMEOUT_SECONDS: ${INGESTION_HTTP_TIMEOUT_SECONDS:-15}
+      INGESTION_LOCK_SECONDS: ${INGESTION_LOCK_SECONDS:-900}
+      INGESTION_MAX_RETRIES: ${INGESTION_MAX_RETRIES:-4}
+    networks:
+      - app
+      - shared_core
+      - shared_vector
+
+  scheduler:
+    build:
+      context: ./apps/api
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/9}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/10}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/8}
+    networks:
+      - app
+      - shared_core
+      - shared_vector
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      API_INTERNAL_BASE_URL: http://api:8000
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8010}
+    ports:
+      - "127.0.0.1:${WEB_PUBLISHED_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app
+
+networks:
+  app:
+  shared_core:
+    external: true
+    name: ${SHARED_INFRA_NETWORK:-enterprise-review-net}
+  shared_vector:
+    external: true
+    name: ${SHARED_QDRANT_NETWORK:-ai-network}
+

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example Learning</title>
+    <link>https://learn.example.test</link>
+    <item>
+      <guid>lesson-3</guid>
+      <title>Reliable Background Jobs</title>
+      <link>https://learn.example.test/lesson-3</link>
+      <description>Design idempotent workers.</description>
+      <pubDate>Thu, 16 Oct 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <guid>lesson-2</guid>
+      <title>Typed Python Services</title>
+      <link>https://learn.example.test/lesson-2</link>
+      <description>Build typed service boundaries.</description>
+      <pubDate>Wed, 15 Oct 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <guid>lesson-1</guid>
+      <title>PostgreSQL Fundamentals</title>
+      <link>https://learn.example.test/lesson-1</link>
+      <description>Understand relational foundations.</description>
+      <pubDate>Tue, 14 Oct 2026 09:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
