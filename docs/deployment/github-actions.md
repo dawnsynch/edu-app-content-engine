@@ -18,7 +18,8 @@ already have:
 - The external Docker networks `enterprise-review-net` and `ai-network`.
 - PostgreSQL, Redis, Qdrant, and LiteLLM attached to those networks using the
   names or aliases documented in the project README.
-- A GHCR login that can pull this repository's private packages.
+- Outbound HTTPS access to `ghcr.io` so the workflow can authenticate and pull
+  this repository's private packages.
 
 Create the deployment directory and grant it to the deployment user:
 
@@ -27,13 +28,10 @@ sudo mkdir -p /opt/edu-dawnsynch
 sudo chown deploy:deploy /opt/edu-dawnsynch
 ```
 
-Log in to GHCR once as the deployment user using a token with package read
-permission. Supply the token through standard input and do not put it in shell
-history or the repository:
-
-```bash
-printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
-```
+The workflow logs the deployment user in to GHCR over SSH using `GHCR_USERNAME`
+and `GHCR_PAT`. Use a dedicated token with only the package-read access needed to
+pull this repository's private images. Docker stores this login in the deployment
+user's Docker configuration on the server.
 
 ## Deployment SSH key
 
@@ -63,20 +61,23 @@ secrets:
 
 | Secret | Value |
 | --- | --- |
-| `DEPLOY_HOST` | Server hostname or IP address |
-| `DEPLOY_PORT` | SSH port; use `22` when unchanged |
-| `DEPLOY_USER` | Dedicated non-root deployment user |
-| `DEPLOY_PATH` | `/opt/edu-dawnsynch` |
-| `DEPLOY_SSH_KEY` | Complete private deployment key |
-| `DEPLOY_KNOWN_HOSTS` | Verified `ssh-keyscan -H` output |
+| `VM_HOST` | Server hostname or IP address |
+| `VM_SSH_PORT` | SSH port; optional when using `22` |
+| `VM_USER` | Dedicated non-root deployment user |
+| `VM_APP_DIR` | `/opt/edu-dawnsynch` |
+| `VM_SSH_KEY` | Complete private deployment key |
+| `VM_KNOWN_HOSTS` | Verified `ssh-keyscan -H` output |
+| `GHCR_USERNAME` | GitHub account that owns the package-read token |
+| `GHCR_PAT` | Token permitted to pull the private GHCR images |
 
 For an ARM64 server, create the repository variable
 `DEPLOY_PLATFORMS=linux/arm64`. The default is `linux/amd64`. A multi-platform
 value such as `linux/amd64,linux/arm64` publishes one image usable on both.
 
 The workflow uses the built-in `GITHUB_TOKEN` to publish packages. Repository
-Actions settings must permit workflow read/write access to packages. The Linux
-server's GHCR read credential is separate.
+Actions settings must permit workflow package writes. `GHCR_PAT` is used only by
+the remote server to pull the resulting private images; it is not placed in the
+repository's Git remote URL.
 
 ## First deployment
 

@@ -82,59 +82,76 @@ jobs:
 
       - name: Validate deployment settings
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_APP_DIR: ${{ secrets.VM_APP_DIR }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         run: |
-          : "${DEPLOY_HOST:?DEPLOY_HOST is not configured}"
-          : "${DEPLOY_USER:?DEPLOY_USER is not configured}"
-          : "${DEPLOY_PATH:?DEPLOY_PATH is not configured}"
-          : "${DEPLOY_SSH_KEY:?DEPLOY_SSH_KEY is not configured}"
-          : "${DEPLOY_KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS is not configured}"
-          [[ "${DEPLOY_PORT:-22}" =~ ^[0-9]+$ ]]
-          [[ "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
-          [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]
+          : "${VM_HOST:?VM_HOST is not configured}"
+          : "${VM_USER:?VM_USER is not configured}"
+          : "${VM_APP_DIR:?VM_APP_DIR is not configured}"
+          : "${VM_SSH_KEY:?VM_SSH_KEY is not configured}"
+          : "${VM_KNOWN_HOSTS:?VM_KNOWN_HOSTS is not configured}"
+          : "${GHCR_USERNAME:?GHCR_USERNAME is not configured}"
+          : "${GHCR_PAT:?GHCR_PAT is not configured}"
+          [[ "${VM_SSH_PORT:-22}" =~ ^[0-9]+$ ]]
+          [[ "$VM_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+          [[ "$VM_APP_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]]
 
       - name: Configure SSH
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
         run: |
           install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$VM_SSH_KEY" > "$HOME/.ssh/deploy_key"
           chmod 600 "$HOME/.ssh/deploy_key"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$VM_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
 
       - name: Upload deployment files
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_APP_DIR: ${{ secrets.VM_APP_DIR }}
         run: |
-          port="${DEPLOY_PORT:-22}"
-          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mkdir -p '$DEPLOY_PATH/scripts'"
+          port="${VM_SSH_PORT:-22}"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$VM_USER@$VM_HOST" \
+            "mkdir -p '$VM_APP_DIR/scripts'"
           scp -i "$HOME/.ssh/deploy_key" -P "$port" \
             docker-compose.yml docker-compose.deploy.yml \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+            "$VM_USER@$VM_HOST:$VM_APP_DIR/"
           scp -i "$HOME/.ssh/deploy_key" -P "$port" scripts/deploy.sh \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/scripts/deploy.sh"
+            "$VM_USER@$VM_HOST:$VM_APP_DIR/scripts/deploy.sh"
+
+      - name: Authenticate server to GHCR
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
+          VM_USER: ${{ secrets.VM_USER }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: |
+          port="${VM_SSH_PORT:-22}"
+          printf '%s' "$GHCR_PAT" | \
+            ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$VM_USER@$VM_HOST" \
+              "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
 
       - name: Deploy and verify
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_APP_DIR: ${{ secrets.VM_APP_DIR }}
           API_IMAGE: ${{ needs.build.outputs.api_image }}
           WEB_IMAGE: ${{ needs.build.outputs.web_image }}
           RELEASE_SHA: ${{ needs.build.outputs.release_sha }}
         run: |
-          port="${DEPLOY_PORT:-22}"
-          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && chmod 700 scripts/deploy.sh && API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' RELEASE_SHA='$RELEASE_SHA' scripts/deploy.sh"
+          port="${VM_SSH_PORT:-22}"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$port" "$VM_USER@$VM_HOST" \
+            "cd '$VM_APP_DIR' && chmod 700 scripts/deploy.sh && API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' RELEASE_SHA='$RELEASE_SHA' scripts/deploy.sh"
