@@ -1,0 +1,1 @@
+"""Manually curated course directory."""

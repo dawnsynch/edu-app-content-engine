@@ -1,0 +1,1 @@
+"""Normalized learning content module."""
